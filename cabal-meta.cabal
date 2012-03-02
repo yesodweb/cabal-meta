@@ -1,0 +1,28 @@
+name:            cabal-meta
+version:         0.0
+license:         BSD3
+license-file:    LICENSE
+author:          Greg Weber <greg@gregweber.info>
+maintainer:      Greg Weber <greg@gregweber.info>
+synopsis:        build multiple packages at once
+description:     build multiple packages at once
+
+stability:       Beta
+cabal-version:   >= 1.8
+build-type:      Simple
+homepage:        http://www.yesodweb.com/
+
+flag ghc7
+
+executable cabal-meta
+    main-is: cabal-meta.hs
+
+    if flag(ghc7)
+        build-depends:   base            >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base            >= 4        && < 4.3
+    build-depends:   shelly, filepath, text
+
+    ghc-options:     -Wall
+
