@@ -14,6 +14,16 @@ homepage:        http://www.yesodweb.com/
 
 flag ghc7
 
+Library
+    if flag(ghc7)
+        build-depends:   base            >= 4.3      && < 5
+        cpp-options:     -DGHC7
+    else
+        build-depends:   base            >= 4        && < 4.3
+    build-depends:   shelly, text
+    extensions: OverloadedStrings 
+    exposed-modules: CabalMeta
+
 executable cabal-meta
     main-is: cabal-meta.hs
 
@@ -22,7 +32,17 @@ executable cabal-meta
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends:   shelly, filepath, text
+    build-depends:   shelly, text
 
     ghc-options:     -Wall
+
+    extensions: OverloadedStrings 
+
+test-suite test
+  main-is:         test/main.hs
+  hs-source-dirs: .
+  type:           exitcode-stdio-1.0
+
+  build-depends: base, shelly, text
+  extensions: OverloadedStrings 
 
