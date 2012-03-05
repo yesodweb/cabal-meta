@@ -11,6 +11,7 @@ import Data.Monoid ((<>))
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM, when)
+import Data.Monoid (Monoid(..))
 
 {-
 import FileLocation (debug)
@@ -41,22 +42,31 @@ data PackageSources = PackageSources {
   , gits     :: [Package]
 } deriving Show
 
-readPackages :: Bool -> Text -> ShIO [Package]
+instance Monoid PackageSources where
+  mempty = PackageSources [] [] [] []
+  mappend (PackageSources d1 ha1 ht1 g1) (PackageSources d2 ha2 ht2 g2) =
+    PackageSources (mappend d1 d2) (mappend ha1 ha2)
+      (mappend ht1 ht2) (mappend g1 g2)
+
+readPackages :: Bool -> Text -> ShIO PackageSources
 readPackages allowCabals dir = do
   fullDir <- path dir
   chdir fullDir $ do
     cabalPresent <- if allowCabals then return False else isCabalPresent
-    if cabalPresent then return [] else do
-        packages <- getSources
-        let allPkgs = dirs packages ++ hackages packages
-        let ds = dirs packages
+    if cabalPresent then return mempty else do
+        psources <- getSources
+        let allPkgs = dirs psources ++ hackages psources
         when (null allPkgs) $ terror $ "empty " <> source_file
 
-        child_pkgs <- forM ds $ \pkg -> do
+        child_pkgs <- forM (dirs psources) $ \pkg -> do
           b <- fmap (== fullDir) (path $ pLocation pkg)
-          if b  then return [] else readPackages False (pLocation pkg)
-        return $ hackages packages ++
-          (concatMap (\(p, ps) -> if null ps then [p] else ps) $ zip ds child_pkgs)
+          if b  then return mempty else readPackages False (pLocation pkg)
+        return $ mempty {
+            hackages = hackages psources ++ concatMap hackages child_pkgs
+          , dirs =
+              concatMap (\(p, ps) -> if null ps then [p] else ps) $
+                zip (dirs psources) (map dirs child_pkgs)
+          }
   where
     isCabalFile = LT.isSuffixOf ".cabal" 
     isCabalPresent = do
@@ -80,7 +90,7 @@ readPackages allowCabals dir = do
           return package { pLocation = fp }
 
         paritionSources :: [[Text]] -> PackageSources
-        paritionSources = go $ PackageSources [] [] [] []
+        paritionSources = go mempty
           where
           go sources [] = sources
           go _ ([]:_) = error "impossible"
