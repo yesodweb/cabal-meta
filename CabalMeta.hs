@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
 module CabalMeta where
 
 -- TODO:
@@ -7,11 +7,19 @@ module CabalMeta where
 
 import Shelly
 import Prelude hiding (FilePath)
-import Data.Monoid ((<>))
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM, when)
 import Data.Monoid (Monoid(..))
+import Filesystem.Path.CurrentOS (FilePath, hasExtension)
+
+#if __GLASGOW_HASKELL__ < 740 
+infixr 5 <>
+(<>) :: Monoid m => m -> m -> m
+(<>) = mappend
+#else
+import Data.Monoid ((<>))
+#endif
 
 {-
 import FileLocation (debug)
@@ -23,17 +31,24 @@ source_file = "sources.txt"
 cabal_install :: [Text] -> ShIO Text
 cabal_install = command "cabal" ["install"]
 
+cabal_install_ :: [Text] -> ShIO ()
+cabal_install_ = command_ "cabal" ["install"]
+
 headDef :: a -> [a] -> a
 headDef d [] = d
 headDef _ (x:_) = x
 
-data Package = Package {
+data Package = Directory {
+    dLocation :: FilePath
+  , pFlags :: [Text]
+} | Package {
     pLocation :: Text
   , pFlags :: [Text]
 } deriving Show
 
 asList :: Package -> [Text]
 asList (Package l flags) = l:flags
+asList (Directory d flags) = toTextUnsafe d : flags
 
 data PackageSources = PackageSources {
     dirs     :: [Package]
@@ -48,19 +63,18 @@ instance Monoid PackageSources where
     PackageSources (mappend d1 d2) (mappend ha1 ha2)
       (mappend ht1 ht2) (mappend g1 g2)
 
-readPackages :: Bool -> Text -> ShIO PackageSources
-readPackages allowCabals dir = do
-  fullDir <- path dir
+readPackages :: Bool -> FilePath -> ShIO PackageSources
+readPackages allowCabals startDir = do
+  fullDir <- path startDir
   chdir fullDir $ do
     cabalPresent <- if allowCabals then return False else isCabalPresent
     if cabalPresent then return mempty else do
         psources <- getSources
-        let allPkgs = dirs psources ++ hackages psources
-        when (null allPkgs) $ terror $ "empty " <> source_file
+        when (null (dirs psources) && null (hackages psources)) $ terror $ "empty " <>| source_file
 
-        child_pkgs <- forM (dirs psources) $ \pkg -> do
-          b <- fmap (== fullDir) (path $ pLocation pkg)
-          if b  then return mempty else readPackages False (pLocation pkg)
+        child_pkgs <- forM (dirs psources) $ \dir -> do
+          b <- fmap (== fullDir) (path $ dLocation dir)
+          if b  then return mempty else readPackages False (dLocation dir)
         return $ mempty {
             hackages = hackages psources ++ concatMap hackages child_pkgs
           , dirs =
@@ -68,7 +82,7 @@ readPackages allowCabals dir = do
                 zip (dirs psources) (map dirs child_pkgs)
           }
   where
-    isCabalFile = LT.isSuffixOf ".cabal" 
+    isCabalFile = flip hasExtension ".cabal"
     isCabalPresent = do
         cabals <- fmap (filter isCabalFile) $ ls "."
         return $ not $ null cabals 
@@ -78,7 +92,7 @@ readPackages allowCabals dir = do
     getSources :: ShIO PackageSources
     getSources = do
         sourceLines <- fmap LT.lines $ readfile source_file
-        let sources = paritionSources $ [ source | 
+        let sources = paritionSources [ source | 
               source <- map LT.words sourceLines,
               not . null $ source
               ]
@@ -86,8 +100,8 @@ readPackages allowCabals dir = do
         return $ sources { dirs = ds }
       where
         fullPath package = do
-          fp <- path $ pLocation package
-          return package { pLocation = fp }
+          fp <- path $ dLocation package
+          return package { dLocation = fp }
 
         paritionSources :: [[Text]] -> PackageSources
         paritionSources = go mempty
@@ -95,9 +109,10 @@ readPackages allowCabals dir = do
           go sources [] = sources
           go _ ([]:_) = error "impossible"
           go sources ((name:flags):more) = let c = LT.head name in
-            if c == '.' || c == '/'              then go sources { dirs = package: dirs sources } more
-              else if LT.isPrefixOf "http:" name then go sources { https = package: https sources } more
-              else if LT.isPrefixOf "git:"  name then go sources { gits = package: gits sources } more
-              else                                    go sources { hackages = package: hackages sources } more
+            if c == '.' || c == '/'               then go sources { dirs = mkDir: dirs sources } more
+              else if "http" `LT.isPrefixOf` name then go sources { https = mkPkg: https sources } more
+              else if "git:" `LT.isPrefixOf` name then go sources { gits = mkPkg: gits sources } more
+              else                                     go sources { hackages = mkPkg: hackages sources } more
             where
-              package = Package name flags
+              mkDir = Directory (fromText name) flags
+              mkPkg = Package name flags

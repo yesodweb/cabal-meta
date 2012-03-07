@@ -20,7 +20,7 @@ Library
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends:   shelly, text
+    build-depends:   shelly, text, system-filepath
     extensions: OverloadedStrings 
     exposed-modules: CabalMeta
 
@@ -32,7 +32,7 @@ executable cabal-meta
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends:   shelly, text
+    build-depends:   shelly, text, system-filepath
 
     ghc-options:     -Wall
 
@@ -43,6 +43,6 @@ test-suite test
   hs-source-dirs: .
   type:           exitcode-stdio-1.0
 
-  build-depends: base, shelly, text
+  build-depends: base, shelly, text, system-filepath
   extensions: OverloadedStrings 
 
