@@ -20,19 +20,21 @@ Library
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends:   shelly, text, system-filepath
+    build-depends: shelly, text, system-filepath
+                  --, file-location
     extensions: OverloadedStrings 
     exposed-modules: CabalMeta
 
 executable cabal-meta
-    main-is: cabal-meta.hs
+    main-is: main.hs
 
     if flag(ghc7)
         build-depends:   base            >= 4.3      && < 5
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends:   shelly, text, system-filepath
+    build-depends: shelly, text, system-filepath
+                 --, file-location
 
     ghc-options:     -Wall
 

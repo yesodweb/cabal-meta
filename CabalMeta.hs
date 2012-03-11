@@ -12,7 +12,9 @@ import qualified Data.Text.Lazy as LT
 import Control.Monad (forM, when)
 import Data.Monoid (Monoid(..))
 import Filesystem.Path.CurrentOS (FilePath, hasExtension)
-
+{--
+import FileLocation (debug)
+--}
 #if __GLASGOW_HASKELL__ < 740 
 infixr 5 <>
 (<>) :: Monoid m => m -> m -> m
@@ -20,10 +22,6 @@ infixr 5 <>
 #else
 import Data.Monoid ((<>))
 #endif
-
-{-
-import FileLocation (debug)
--}
 
 source_file :: FilePath
 source_file = "sources.txt"
@@ -82,10 +80,8 @@ readPackages allowCabals startDir = do
                 zip (dirs psources) (map dirs child_pkgs)
           }
   where
-    isCabalFile = flip hasExtension ".cabal"
-    isCabalPresent = do
-        cabals <- fmap (filter isCabalFile) $ ls "."
-        return $ not $ null cabals 
+    isCabalFile = flip hasExtension "cabal"
+    isCabalPresent = fmap (any isCabalFile) (ls ".")
 
     terror = fail . unpack
 
