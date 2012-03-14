@@ -9,14 +9,15 @@ import Shelly
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as LT
-import Control.Monad (forM, when)
+import Control.Monad (forM)
 import Data.Monoid (Monoid(..))
 import Filesystem.Path.CurrentOS (FilePath, hasExtension)
 {--
 import FileLocation (debug)
 --}
-#if __GLASGOW_HASKELL__ < 740 
+#if __GLASGOW_HASKELL__ < 704
 infixr 5 <>
+import Control.Monad (when)
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
 #else
