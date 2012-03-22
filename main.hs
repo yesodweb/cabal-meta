@@ -12,7 +12,7 @@ main = do
   args <- fmap (map decodeString) getArgs
   shelly $ verbosely $ do
     packageSources <- readPackages True $ headDef "." args
-    let pkgs = hackages packageSources ++ dirs packageSources
+    let pkgs = packages packageSources
     let installs = map asList pkgs
     echo "Installing packages:"
     mapM_ echo $ map (LT.intercalate " ") installs

@@ -21,7 +21,7 @@ Library
     else
         build-depends:   base            >= 4        && < 4.3
     build-depends: shelly, text, system-filepath
-                  --, file-location
+                  -- , file-location
     extensions: OverloadedStrings 
     exposed-modules: CabalMeta
 
@@ -34,7 +34,7 @@ executable cabal-meta
     else
         build-depends:   base            >= 4        && < 4.3
     build-depends: shelly, text, system-filepath
-                 --, file-location
+                 -- , file-location
 
     ghc-options:     -Wall
 
@@ -45,6 +45,7 @@ test-suite test
   hs-source-dirs: .
   type:           exitcode-stdio-1.0
 
-  build-depends: base, shelly, text, system-filepath
+  build-depends: hspec, HUnit, unix, base, shelly, text, system-filepath
+                 -- , file-location
   extensions: OverloadedStrings 
 

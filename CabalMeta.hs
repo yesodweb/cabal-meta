@@ -9,17 +9,17 @@ import Shelly
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as LT
-import Control.Monad (forM)
+import Control.Monad (forM, unless)
 import Data.Monoid (Monoid(..))
-import Filesystem.Path.CurrentOS (FilePath, hasExtension)
+import Filesystem.Path.CurrentOS (FilePath, hasExtension, filename)
 {--
 import FileLocation (debug)
 --}
 #if __GLASGOW_HASKELL__ < 704
-infixr 5 <>
 import Control.Monad (when)
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
+infixr 5 <>
 #else
 import Data.Monoid ((<>))
 #endif
@@ -43,7 +43,7 @@ data Package = Directory {
 } | Package {
     pLocation :: Text
   , pFlags :: [Text]
-} deriving Show
+} deriving (Show, Eq)
 
 asList :: Package -> [Text]
 asList (Package l flags) = l:flags
@@ -54,13 +54,23 @@ data PackageSources = PackageSources {
   , hackages :: [Package]
   , https    :: [Package]
   , gits     :: [Package]
-} deriving Show
+} deriving (Show, Eq)
+
+packages :: PackageSources -> [Package]
+packages psources =
+  dirs psources ++
+  hackages psources ++
+  https psources ++
+  gits psources
 
 instance Monoid PackageSources where
   mempty = PackageSources [] [] [] []
   mappend (PackageSources d1 ha1 ht1 g1) (PackageSources d2 ha2 ht2 g2) =
     PackageSources (mappend d1 d2) (mappend ha1 ha2)
       (mappend ht1 ht2) (mappend g1 g2)
+
+vendor_dir :: FilePath
+vendor_dir = "vendor"
 
 readPackages :: Bool -> FilePath -> ShIO PackageSources
 readPackages allowCabals startDir = do
@@ -69,16 +79,33 @@ readPackages allowCabals startDir = do
     cabalPresent <- if allowCabals then return False else isCabalPresent
     if cabalPresent then return mempty else do
         psources <- getSources
-        when (null (dirs psources) && null (hackages psources)) $ terror $ "empty " <>| source_file
+        when (psources == mempty) $ terror $ "empty " <>| source_file
 
-        child_pkgs <- forM (dirs psources) $ \dir -> do
+        let git_repos = map pLocation $ gits psources ++ https psources
+        child_vendor_pkgs <- if null git_repos then return [] else do
+          mkdir_p vendor_dir
+          chdir vendor_dir $
+            forM git_repos $ \repo -> do
+              let d = filename $ fromText repo
+              e <- test_d d
+              unless e $ run_ "git" ["clone", "--recursive", repo]
+              readPackages False d
+
+        child_dir_pkgs <- forM (dirs psources) $ \dir -> do
           b <- fmap (== fullDir) (path $ dLocation dir)
-          if b  then return mempty else readPackages False (dLocation dir)
+          if b then return mempty else readPackages False (dLocation dir)
+
+        let child_pkgs = child_dir_pkgs ++ child_vendor_pkgs
+
+        -- in the end we have either hackage packages or directories
+        -- a directory was either listed as a directory or a child found in a sources.txt in that directory
+        -- if there are no child, there will be an empty list [] of children
+        -- this would be easy to break & should be cleaned up
         return $ mempty {
             hackages = hackages psources ++ concatMap hackages child_pkgs
           , dirs =
               concatMap (\(p, ps) -> if null ps then [p] else ps) $
-                zip (dirs psources) (map dirs child_pkgs)
+                zip (dirs psources ++ gits psources ++ https psources) (map dirs child_pkgs)
           }
   where
     isCabalFile = flip hasExtension "cabal"
@@ -88,9 +115,10 @@ readPackages allowCabals startDir = do
 
     getSources :: ShIO PackageSources
     getSources = do
-        sourceLines <- fmap LT.lines $ readfile source_file
+        sourceContent <- readfile source_file
         let sources = paritionSources [ source | 
-              source <- map LT.words sourceLines,
+              source <- map LT.words (LT.lines sourceContent),
+              "--" /= head source,
               not . null $ source
               ]
         ds <- mapM fullPath (dirs sources)
