@@ -15,14 +15,6 @@ import Filesystem.Path.CurrentOS (FilePath, hasExtension, filename)
 {--
 import FileLocation (debug)
 --}
-#if __GLASGOW_HASKELL__ < 704
-import Control.Monad (when)
-(<>) :: Monoid m => m -> m -> m
-(<>) = mappend
-infixr 5 <>
-#else
-import Data.Monoid ((<>))
-#endif
 
 source_file :: FilePath
 source_file = "sources.txt"
@@ -55,6 +47,9 @@ data PackageSources = PackageSources {
   , https    :: [Package]
   , gits     :: [Package]
 } deriving (Show, Eq)
+
+packageList :: PackageSources -> [[Text]]
+packageList = map asList . packages
 
 packages :: PackageSources -> [Package]
 packages psources =
