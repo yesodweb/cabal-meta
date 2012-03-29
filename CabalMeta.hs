@@ -9,7 +9,7 @@ import Shelly
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as LT
-import Control.Monad (forM, unless)
+import Control.Monad (forM)
 import Data.Monoid (Monoid(..))
 import Filesystem.Path.CurrentOS (FilePath, hasExtension, filename)
 {--
@@ -67,7 +67,7 @@ instance Monoid PackageSources where
 vendor_dir :: FilePath
 vendor_dir = "vendor"
 
-readPackages :: Bool -> FilePath -> ShIO PackageSources
+readPackages :: Bool ->  FilePath -> ShIO PackageSources
 readPackages allowCabals startDir = do
   fullDir <- path startDir
   chdir fullDir $ do
@@ -83,7 +83,9 @@ readPackages allowCabals startDir = do
             forM git_repos $ \repo -> do
               let d = filename $ fromText repo
               e <- test_d d
-              unless e $ run_ "git" ["clone", "--recursive", repo]
+              if e
+                then run_ "git" ["clone", "--recursive", repo]
+                else return () -- pull & run git submodule update --init
               readPackages False d
 
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
