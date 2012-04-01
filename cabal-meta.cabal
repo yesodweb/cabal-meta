@@ -1,5 +1,5 @@
 name:            cabal-meta
-version:         0.0
+version:         0.1
 license:         BSD3
 license-file:    LICENSE
 author:          Greg Weber <greg@gregweber.info>
@@ -20,7 +20,8 @@ Library
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends: shelly, text, system-filepath
+    build-depends: shelly >= 0.3.1
+                 , text, system-filepath
                   -- , file-location
     extensions: OverloadedStrings 
     exposed-modules: CabalMeta
@@ -33,7 +34,8 @@ executable cabal-meta
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends: shelly, text, system-filepath
+    build-depends: shelly >= 0.3.1
+                 , text, system-filepath
                  -- , file-location
 
     ghc-options:     -Wall
@@ -45,7 +47,8 @@ test-suite test
   hs-source-dirs: .
   type:           exitcode-stdio-1.0
 
-  build-depends: hspec, HUnit, unix, base, shelly, text, system-filepath
+  build-depends: shelly >= 0.3.1
+               , hspec, HUnit, unix, base, text, system-filepath
                  -- , file-location
   extensions: OverloadedStrings 
 
