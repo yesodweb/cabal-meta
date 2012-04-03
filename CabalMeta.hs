@@ -132,9 +132,9 @@ readPackages allowCabals startDir = do
     getSources = do
         sourceContent <- readfile source_file
         let sources = paritionSources [ source | 
-              source <- map T.words (T.lines sourceContent),
-              "--" /= head source,
-              not . null $ source
+              source <- map (T.words . T.strip) (T.lines sourceContent),
+              not . null $ source,
+              "--" /= head source
               ]
         ds <- mapM fullPath (dirs sources)
         return $ sources { dirs = ds }
