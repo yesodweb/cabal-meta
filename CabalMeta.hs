@@ -31,16 +31,6 @@ import FileLocation (debug)
 source_file :: FilePath
 source_file = "sources.txt"
 
-cabal_install :: [Text] -> ShIO Text
-cabal_install = command "cabal" ["install"]
-
-cabal_install_ :: [Text] -> ShIO ()
-cabal_install_ = command_ "cabal" ["install"]
-
-headDef :: a -> [a] -> a
-headDef d [] = d
-headDef _ (x:_) = x
-
 data Package = Directory {
     dLocation :: FilePath
   , pFlags :: [Text]
@@ -72,8 +62,11 @@ packages :: PackageSources -> [Package]
 packages psources =
   dirs psources ++
   hackages psources ++
-  https psources ++
-  gits psources
+  gitPackages psources
+
+gitPackages :: PackageSources -> [Package]
+gitPackages psources =
+  gits psources ++ https psources
 
 instance Monoid PackageSources where
   mempty = PackageSources [] [] [] []
@@ -96,7 +89,7 @@ readPackages allowCabals startDir = do
         psources <- getSources
         when (psources == mempty) $ terror $ "empty " <>| source_file
 
-        let git_pkgs = gits psources ++ https psources
+        let git_pkgs = gitPackages psources
         child_vendor_pkgs <- if null git_pkgs then return [] else do
           mkdir_p vendor_dir
           chdir vendor_dir $
