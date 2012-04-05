@@ -1,10 +1,6 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
 module CabalMeta where
 
--- TODO:
--- * use --only-dependencies. otherwise a simple build failure will prevent a cabal-src-install
--- support git & tar.gz urls
-
 import Shelly
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
