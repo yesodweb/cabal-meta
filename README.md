@@ -1,4 +1,6 @@
-cabal-meta facilitates
+# cabal-meta
+
+cabal-meta is a cabal wrapper that facilitates:
 
 * installing repos not on hackage (local or remote repos)
 * specifying build flags
@@ -7,11 +9,11 @@ cabal-meta facilitates
 Lets explain the last point:
 If you run this command, you can easily get a failure:
 
-   cabal install foo && cabal install bar
+    cabal install foo && cabal install bar
 
- Whereas if you run this command it should almost always work:
+Whereas if you run this command it should almost always work:
 
-   cabal install foo bar
+    cabal install foo bar
 
 cabal-meta facilitates the second command: installing everything at once.
 This is *very* useful when you want cabal to install packages not on hackage. You need not worry about how cabal interprets your version, instead you let cabal easily interpret a location.
@@ -25,7 +27,7 @@ cabal-src-install is used to add local packages to your cabal package database: 
 Please note that this is done after the package install. If there is a failure anywhere along the way, cabal-src-install will not be used.
 
 
-# Usage
+## Usage
 
 Run `cabal-meta` to see help output. Normal usage:
 
@@ -36,9 +38,9 @@ cabal-dev support:
     cabal-meta --dev install
 
 
-# Examples
+## Examples
 
-## Yesod from github
+### Yesod from github
 
 To build a Yesod application using the latest code, create a sources.txt in the project directory with:
 
@@ -50,7 +52,7 @@ To build a Yesod application using the latest code, create a sources.txt in the 
 
 Now just run: `cabal-meta install`
 
-## Yesod from local
+### Yesod from local
 
 To build a Yesod web application using my already downloaded source from github, I have a sources.txt in my project consisting of
 
@@ -62,7 +64,7 @@ To build a Yesod web application using my already downloaded source from github,
 
 `sphinx` is a hackage package, and I have a build flag next to it that I don't have to worry about forgetting anymore. *warning*: a packge build flag will end up being applied to *all* packages
 
-## Recursion of sources.txt
+### Recursion of sources.txt
 
 In the example above, `path/to/yesod/sources` contains a `sources.txt` with:
 
