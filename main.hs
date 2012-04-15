@@ -54,7 +54,7 @@ main = do
       when (length (packages packageSources) == length (hackages packageSources)) $ do
         mPath <- which "cabal-src-install"
         when (isNothing mPath) $
-          errorExit "please run: cabal install cabal-src-install"
+          errorExit "please run: cabal install cabal-src"
 
     let installs = packageList packageSources
     echo "Installing packages:"
