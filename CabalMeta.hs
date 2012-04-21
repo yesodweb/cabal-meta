@@ -145,10 +145,11 @@ readPackages allowCabals startDir = do
           go sources [] = sources
           go _ ([]:_) = error "impossible"
           go sources ((name:flags):more) = let c = T.head name in
-            if c == '.' || c == '/'              then go sources { dirs = mkDir: dirs sources } more
-              else if "http" `T.isPrefixOf` name then go sources { https = mkGit: https sources } more
-              else if "git:" `T.isPrefixOf` name then go sources { gits = mkGit: gits sources } more
-              else                                    go sources { hackages = mkPkg: hackages sources } more
+            if c == '.' || c == '/'               then go sources { dirs = mkDir: dirs sources } more
+              else if "http"  `T.isPrefixOf` name then go sources { https = mkGit: https sources } more
+              else if "https" `T.isPrefixOf` name then go sources { https = mkGit: https sources } more
+              else if "git:"  `T.isPrefixOf` name then go sources { gits = mkGit: gits sources } more
+              else                                     go sources { hackages = mkPkg: hackages sources } more
             where
               mkDir = Directory (fromText name) flags
               mkPkg = Package name flags
