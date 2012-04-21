@@ -50,11 +50,10 @@ main = do
     let (_:args) = noDevArgs
 
     packageSources <- readPackages True "."
-    ifCabal cabal $
-      when (length (packages packageSources) == length (hackages packageSources)) $ do
-        mPath <- which "cabal-src-install"
-        when (isNothing mPath) $
-          errorExit "please run: cabal install cabal-src"
+    ifCabal cabal $ do
+      mPath <- which "cabal-src-install"
+      when (isNothing mPath) $
+        errorExit "please run: cabal install cabal-src"
 
     let installs = packageList packageSources
     echo "Installing packages:"
