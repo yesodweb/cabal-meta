@@ -11,6 +11,7 @@ stability:       Beta
 cabal-version:   >= 1.8
 build-type:      Simple
 homepage:        http://www.yesodweb.com/
+category:        Development
 
 flag ghc7
 
@@ -52,3 +53,7 @@ test-suite test
                  -- , file-location
   extensions: OverloadedStrings 
 
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/cabal-meta
+  
