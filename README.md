@@ -19,7 +19,7 @@ cabal-meta facilitates the second command: installing everything at once.
 This is *very* useful when you want cabal to install packages not on hackage. You need not worry about how cabal interprets your version, instead you let cabal easily interpret a location.
 
 When invoked, cabal-meta looks for a file `sources.txt`.
-Each line of `sources.txt` is either a hackage package, a directory, or a github repo.
+Each line of `sources.txt` is either a hackage package, a directory, or a github repo (which is cloned into a vendor/ directory).
 A directory is either a local cabal package or contains another `sources.txt` to recurse into.
 
 cabal-meta automatically uses cabal-src-install (if you have it installed) unless you are using cabal-dev (--dev option).
