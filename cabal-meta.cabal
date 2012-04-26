@@ -5,7 +5,7 @@ license-file:    LICENSE
 author:          Greg Weber <greg@gregweber.info>
 maintainer:      Greg Weber <greg@gregweber.info>
 synopsis:        build multiple packages at once
-description:     build multiple packages at once
+description:     see: <http://www.yesodweb.com/blog/2012/04/cabal-meta> and <http://github.com/yesodweb/cabal-meta>
 
 stability:       Beta
 cabal-version:   >= 1.8
