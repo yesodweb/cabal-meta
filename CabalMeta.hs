@@ -83,7 +83,7 @@ readPackages allowCabals startDir = do
     cabalPresent <- if allowCabals then return False else isCabalPresent
     if cabalPresent then return mempty else do
         psources <- getSources
-        when (psources == mempty) $ terror $ "empty " <>| source_file
+        when (psources == mempty) $ terror $ "empty " <> toTextIgnore source_file
 
         let git_pkgs = gitPackages psources
         child_vendor_pkgs <- if null git_pkgs then return [] else do

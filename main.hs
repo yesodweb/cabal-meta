@@ -62,12 +62,12 @@ main = do
     cabal_install_ cabal $ args ++ concat installs
     ifCabal cabal $ do
         forM_ (dirs packageSources) $ \pkg ->
-          chdir (dLocation pkg) $ "cabal-src-install" # ["--src-only"]
+          chdir (dLocation pkg) $ run "cabal-src-install" ["--src-only"]
         forM_ (gitPackages packageSources) $ \pkg ->
           chdir vendor_dir $ do
             let repo = gLocation pkg 
             let d = filename $ fromText repo
-            chdir d $ "cabal-src-install" # ["--src-only"]
+            chdir d $ run "cabal-src-install" ["--src-only"]
     return ()
 
   where
