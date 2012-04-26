@@ -42,7 +42,7 @@ data Package = Directory {
 asList :: Package -> [Text]
 asList (Package l flags) = l:flags
 asList (GitPackage l flags tag) = l : flags ++ maybeToList tag
-asList (Directory d flags) = toTextUnsafe d : flags
+asList (Directory d flags) = toTextIgnore d : flags
 
 data PackageSources = PackageSources {
     dirs     :: [Package]
