@@ -1,5 +1,5 @@
 name:            cabal-meta
-version:         0.2.0
+version:         0.2.1
 license:         BSD3
 license-file:    LICENSE
 author:          Greg Weber <greg@gregweber.info>
