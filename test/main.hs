@@ -6,7 +6,7 @@ import Test.HUnit ((@?=),(@=?), Assertion, assertFailure, assertBool)
 import Test.Hspec.HUnit ()
 import Data.Text.Lazy ()
 import System.IO
-import Filesystem.Path.CurrentOS hiding (fromText)
+import Filesystem.Path.CurrentOS hiding (fromText, (</>))
 
 main :: IO ()
 main = hspecX $
@@ -16,5 +16,5 @@ main = hspecX $
       d <- pwd
       return (ps, d)
 
-    let localize = (\p-> toTextUnsafe $ wd </> fromText p)
+    let localize = (\p-> toTextIgnore $ wd </> fromText p)
     concatMap asList (packages psources) @?= [localize "test/child", localize "test/vendor/yesod/yesod", "sphinx", "-fone-one-beta", "fake-package"]
