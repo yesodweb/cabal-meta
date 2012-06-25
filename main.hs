@@ -34,6 +34,14 @@ progName :: CabalExe -> FilePath
 progName Cabal = "cabal"
 progName CabalDev = "cabal-dev"
 
+assertCabalDevInstalled :: CabalExe -> ShIO ()
+assertCabalDevInstalled Cabal    = return ()
+assertCabalDevInstalled CabalDev = do
+  mcd <- which "cabal-dev"
+  case mcd of
+    Just _ -> return ()
+    Nothing -> error "--dev requires cabal-dev to be installed"
+
 main :: IO ()
 main = do
   cmdArgs <- fmap (map pack) getArgs
@@ -42,6 +50,7 @@ main = do
         noDevArgs = filter (/= "--dev") cmdArgs
         cabal = if isDev then CabalDev else Cabal
 
+    assertCabalDevInstalled cabal
     unless (headDef "" noDevArgs == "install") $
       errorExit help
 
