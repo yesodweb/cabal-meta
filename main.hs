@@ -4,12 +4,11 @@ import Shelly
 import System.Environment (getArgs)
 
 import qualified Data.Text.Lazy as T
-import Control.Monad (forM_, when, unless)
--- import Filesystem.Path.CurrentOS (decodeString)
+import Control.Monad (forM_)
 import Data.Maybe (isNothing)
 import Data.Text.Lazy (Text, pack)
 
-import Filesystem.Path.CurrentOS (FilePath, filename)
+import Filesystem.Path.CurrentOS (filename)
 import Prelude hiding (FilePath)
 
 headDef :: a -> [a] -> a

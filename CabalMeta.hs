@@ -1,11 +1,11 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
 module CabalMeta where
 
-import Shelly
+import Shelly hiding (tag)
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as T
-import Filesystem.Path.CurrentOS (FilePath, hasExtension, filename)
+import Filesystem.Path.CurrentOS (hasExtension, filename)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.List (partition)
 
@@ -78,7 +78,7 @@ git_ = command1_ "git" []
 
 readPackages :: Bool ->  FilePath -> ShIO PackageSources
 readPackages allowCabals startDir = do
-  fullDir <- path startDir
+  fullDir <- absPath startDir
   chdir fullDir $ do
     cabalPresent <- if allowCabals then return False else isCabalPresent
     if cabalPresent then return mempty else do
@@ -102,7 +102,7 @@ readPackages allowCabals startDir = do
               readPackages False d
 
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
-          b <- fmap (== fullDir) (path $ dLocation dir)
+          b <- fmap (== fullDir) (absPath $ dLocation dir)
           if b then return mempty else readPackages False (dLocation dir)
 
         let child_pkgs = child_dir_pkgs ++ child_vendor_pkgs
@@ -136,7 +136,7 @@ readPackages allowCabals startDir = do
         return $ sources { dirs = ds }
       where
         fullPath package = do
-          fp <- path $ dLocation package
+          fp <- absPath $ dLocation package
           return package { dLocation = fp }
 
         paritionSources :: [[Text]] -> PackageSources

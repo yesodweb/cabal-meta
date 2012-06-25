@@ -9,7 +9,7 @@ import System.IO
 import Filesystem.Path.CurrentOS hiding (fromText, (</>))
 
 main :: IO ()
-main = hspecX $
+main = hspec $
   it "gets the packages" $ do
     (psources, wd) <- shelly $ verbosely $ do
       ps <- readPackages True "test"

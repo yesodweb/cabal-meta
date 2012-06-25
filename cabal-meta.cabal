@@ -21,9 +21,9 @@ Library
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends: shelly >= 0.6
+    build-depends: shelly >= 0.9
                  , text, system-filepath
-                  -- , file-location
+                 -- , file-location
     extensions: OverloadedStrings 
     exposed-modules: CabalMeta
 
@@ -35,7 +35,7 @@ executable cabal-meta
         cpp-options:     -DGHC7
     else
         build-depends:   base            >= 4        && < 4.3
-    build-depends: shelly >= 0.3.1
+    build-depends: shelly >= 0.9
                  , text, system-filepath
                  -- , file-location
 
@@ -48,7 +48,7 @@ test-suite test
   hs-source-dirs: .
   type:           exitcode-stdio-1.0
 
-  build-depends: shelly >= 0.3.1
+  build-depends: shelly >= 0.9
                , hspec, HUnit, unix, base, text, system-filepath
                  -- , file-location
   extensions: OverloadedStrings 
