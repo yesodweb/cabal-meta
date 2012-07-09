@@ -37,9 +37,13 @@ progName :: CabalExe -> FilePath
 progName Cabal = "cabal"
 progName CabalDev = "cabal-dev"
 
-assertCabalDevInstalled :: CabalExe -> IO ()
-assertCabalDevInstalled Cabal    = return ()
-assertCabalDevInstalled CabalDev = do
+assertCabalDependencies :: CabalExe -> IO ()
+assertCabalDependencies Cabal    = shelly $ do
+  mPath <- which "cabal-src-install"
+  when (isNothing mPath) $
+    errorExit "please run: cabal install cabal-src"
+
+assertCabalDependencies CabalDev = do
   mcd <- shelly $ which "cabal-dev"
   case mcd of
     Just _ -> return ()
@@ -60,7 +64,7 @@ main = do
   let  cabal = if isDev then CabalDev else Cabal
   let noDevArgs = filter (flip notElem ["--dev","--no-dev"]) cmdArgs
 
-  assertCabalDevInstalled cabal
+  assertCabalDependencies cabal
 
   unless (headDef "" noDevArgs == "install") $ do
     putStrLn $ LT.unpack help
@@ -71,17 +75,12 @@ main = do
 
   shelly $ verbosely $ do
     packageSources <- readPackages True "."
-    ifCabal cabal $ do
-      mPath <- which "cabal-src-install"
-      when (isNothing mPath) $
-        errorExit "please run: cabal install cabal-src"
-
     let installs = packageList packageSources
     echo "Installing packages:"
     mapM_ echo $ map (LT.intercalate " ") installs
 
     cabal_install_ cabal $ args ++ concat installs
-    ifCabal cabal $ do
+    whenCabal cabal $ do
         forM_ (dirs packageSources) $ \pkg ->
           chdir (dLocation pkg) $ run "cabal-src-install" ["--src-only"]
         forM_ (gitPackages packageSources) $ \pkg ->
@@ -92,7 +91,7 @@ main = do
     return ()
 
   where
-    ifCabal cabal a =
+    whenCabal cabal a =
       case cabal of
         CabalDev -> return ()
         Cabal    -> a
