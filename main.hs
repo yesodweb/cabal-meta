@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings, CPP #-}
 import CabalMeta
+import OmniConfig
 import Shelly
 import System.Environment (getArgs)
 
-import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
 import Data.Maybe (isNothing)
 import Data.Text.Lazy (Text, pack)
@@ -16,46 +17,59 @@ headDef d [] = d
 headDef _ (x:_) = x
 
 help :: Text
-help = T.intercalate "\n" [
-  "cabal-meta is a cabal wrapper for packages not on hackage"
+help = LT.intercalate "\n" [
+  "cabal-meta is a cabal wrapper for installing multiple packages at once that may not be on hackage"
  ,"run with:"
  ,""
- ,"    cabal-meta [--dev] install [Cabal install arguments]"
+ ,"    cabal-meta [--[no-]dev] install [cabal install arguments]"
  ,""
  ,"       --dev means use cabal-dev instead of cabal"
+ ,""
+ ,"You can also set options through the CABAL_META_OPTS environment variable or the ~/.cabal-meta/opts file"
  ]
 
 cabal_install_ :: CabalExe -> [Text] -> ShIO ()
 cabal_install_ cabal = command_ (progName cabal) ["install"]
 
-data CabalExe = Cabal | CabalDev
+data CabalExe = Cabal | CabalDev deriving Show
 
 progName :: CabalExe -> FilePath
 progName Cabal = "cabal"
 progName CabalDev = "cabal-dev"
 
-assertCabalDevInstalled :: CabalExe -> ShIO ()
+assertCabalDevInstalled :: CabalExe -> IO ()
 assertCabalDevInstalled Cabal    = return ()
 assertCabalDevInstalled CabalDev = do
-  mcd <- which "cabal-dev"
+  mcd <- shelly $ which "cabal-dev"
   case mcd of
     Just _ -> return ()
     Nothing -> error "--dev requires cabal-dev to be installed"
 
+getDevArg :: IO Bool
+getDevArg = do
+  mSet <- checkProgramConfigs "cabal-meta" "dev" [commandLine, environment, homeOptFile]
+  return $ case mSet of
+    Nothing -> False
+    Just b -> b
+
 main :: IO ()
 main = do
   cmdArgs <- fmap (map pack) getArgs
+  isDev <- getDevArg
+
+  let  cabal = if isDev then CabalDev else Cabal
+  let noDevArgs = filter (flip notElem ["--dev","--no-dev"]) cmdArgs
+
+  assertCabalDevInstalled cabal
+
+  unless (headDef "" noDevArgs == "install") $ do
+    putStrLn $ LT.unpack help
+    putStrLn $ "using cabal: " ++ show cabal
+    shelly $ exit 1
+
+  let (_:args) = noDevArgs
+
   shelly $ verbosely $ do
-    let isDev = elem "--dev" cmdArgs
-        noDevArgs = filter (/= "--dev") cmdArgs
-        cabal = if isDev then CabalDev else Cabal
-
-    assertCabalDevInstalled cabal
-    unless (headDef "" noDevArgs == "install") $
-      errorExit help
-
-    let (_:args) = noDevArgs
-
     packageSources <- readPackages True "."
     ifCabal cabal $ do
       mPath <- which "cabal-src-install"
@@ -64,7 +78,7 @@ main = do
 
     let installs = packageList packageSources
     echo "Installing packages:"
-    mapM_ echo $ map (T.intercalate " ") installs
+    mapM_ echo $ map (LT.intercalate " ") installs
 
     cabal_install_ cabal $ args ++ concat installs
     ifCabal cabal $ do
