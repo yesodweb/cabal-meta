@@ -12,9 +12,9 @@ main :: IO ()
 main = hspec $
   it "gets the packages" $ do
     (psources, wd) <- shelly $ verbosely $ do
-      ps <- readPackages True "test"
       d <- pwd
+      ps <- readPackages True "test"
       return (ps, d)
 
     let localize = (\p-> toTextIgnore $ wd </> fromText p)
-    concatMap asList (packages psources) @?= [localize "test/child", localize "test/vendor/yesod/yesod", "sphinx", "-fone-one-beta", "fake-package"]
+    concatMap asList (packages psources) @?= [localize "test/child/grandchild", "top-package", "sphinx", "-fone-one-beta", "child-package"]

@@ -23,7 +23,7 @@ Library
         build-depends:   base            >= 4        && < 4.3
     build-depends: shelly >= 0.9
                  , text, system-filepath
-                 -- , file-location
+                 , file-location
     extensions: OverloadedStrings 
     exposed-modules: CabalMeta
 
@@ -37,7 +37,7 @@ executable cabal-meta
         build-depends:   base            >= 4        && < 4.3
     build-depends: shelly >= 0.9
                  , text, system-filepath, system-fileio
-                 -- , file-location
+                 , file-location
 
     ghc-options:     -Wall
 
@@ -50,7 +50,7 @@ test-suite test
 
   build-depends: shelly >= 0.9
                , hspec, HUnit, unix, base, text, system-filepath
-               -- , file-location
+               , file-location
   extensions: OverloadedStrings 
 
 source-repository head

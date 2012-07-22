@@ -34,7 +34,7 @@ data Package = Directory {
     pLocation :: Text
   , pFlags :: [Text]
 } | GitPackage {
-    gLocation :: Text
+    gitLocation :: Text
   , pFlags :: [Text]
   , gTag :: Maybe Text
 } deriving (Show, Eq)
@@ -78,7 +78,7 @@ git_ = command1_ "git" []
 
 readPackages :: Bool ->  FilePath -> ShIO PackageSources
 readPackages allowCabals startDir = do
-  fullDir <- absPath startDir
+  fullDir <- canonic startDir
   chdir fullDir $ do
     cabalPresent <- if allowCabals then return False else isCabalPresent
     if cabalPresent then return mempty else do
@@ -90,7 +90,7 @@ readPackages allowCabals startDir = do
           mkdir_p vendor_dir
           chdir vendor_dir $
             forM git_pkgs $ \pkg -> do
-              let repo = gLocation pkg 
+              let repo = gitLocation pkg 
               let d = filename $ fromText repo
               e <- test_d d
               if not e
@@ -102,7 +102,7 @@ readPackages allowCabals startDir = do
               readPackages False d
 
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
-          b <- fmap (== fullDir) (absPath $ dLocation dir)
+          b <- fmap (== fullDir) (canonic $ dLocation dir)
           if b then return mempty else readPackages False (dLocation dir)
 
         let child_pkgs = child_dir_pkgs ++ child_vendor_pkgs
@@ -136,7 +136,7 @@ readPackages allowCabals startDir = do
         return $ sources { dirs = ds }
       where
         fullPath package = do
-          fp <- absPath $ dLocation package
+          fp <- canonic $ dLocation package
           return package { dLocation = fp }
 
         paritionSources :: [[Text]] -> PackageSources

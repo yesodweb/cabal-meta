@@ -85,7 +85,7 @@ main = do
           chdir (dLocation pkg) $ run "cabal-src-install" ["--src-only"]
         forM_ (gitPackages packageSources) $ \pkg ->
           chdir vendor_dir $ do
-            let repo = gLocation pkg 
+            let repo = gitLocation pkg 
             let d = filename $ fromText repo
             chdir d $ run "cabal-src-install" ["--src-only"]
     return ()
