@@ -53,5 +53,5 @@ homeOptFile name = OptionsSource {
       hd <- getHomeDirectory
       contents <- handle (\(_::SomeException) -> return "") $
         readTextFile $ hd </> fromText ("." `T.append` name) </> "opts"
-      return $ T.splitOn " " contents
+      return $ T.splitOn " " $ T.strip contents
   }
