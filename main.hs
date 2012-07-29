@@ -2,12 +2,11 @@
 import CabalMeta
 import OmniConfig
 import Shelly
-import System.Environment (getArgs)
 
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
 import Data.Maybe (isNothing)
-import Data.Text.Lazy (Text, pack)
+import Data.Text.Lazy (Text)
 
 import Filesystem.Path.CurrentOS (filename)
 import Prelude hiding (FilePath)
@@ -49,21 +48,17 @@ assertCabalDependencies CabalDev = do
     Just _ -> return ()
     Nothing -> error "--dev requires cabal-dev to be installed"
 
-getDevArg :: IO Bool
-getDevArg = do
-  mSet <- checkProgramConfigs "cabal-meta" "dev" [commandLine, environment, homeOptFile]
-  return $ case mSet of
-    Nothing -> False
-    Just b -> b
+nothingToFalse :: Maybe Bool -> Bool
+nothingToFalse Nothing = False
+nothingToFalse (Just b)  = b
 
 main :: IO ()
 main = do
-  cmdArgs <- fmap (map pack) getArgs
-  isDev <- getDevArg
+  allArgs <- allProgramOpts [commandLine, environment "cabal-meta", homeOptFile "cabal-meta"]
+  let (mDev, noDevArgs) = checkNegatedOpt "dev" allArgs
+  let isDev = nothingToFalse mDev
 
   let  cabal = if isDev then CabalDev else Cabal
-  let noDevArgs = filter (flip notElem ["--dev","--no-dev"]) cmdArgs
-
   assertCabalDependencies cabal
 
   unless (headDef "" noDevArgs == "install") $ do
@@ -71,7 +66,7 @@ main = do
     putStrLn $ "using cabal: " ++ show cabal
     shelly $ exit 1
 
-  let (_:args) = noDevArgs
+  let (_:args) = map LT.fromStrict noDevArgs
 
   shelly $ verbosely $ do
     packageSources <- readPackages True "."

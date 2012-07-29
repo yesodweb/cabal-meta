@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables, GADTs #-}
 module OmniConfig (
- ProgramConfig(..), checkProgramConfigs, commandLine, environment, homeOptFile
+ OptionsSource(..), allProgramOpts, commandLine, environment, homeOptFile
+ , checkNegatedOpt
 ) where
 
 import Prelude hiding (FilePath)
@@ -8,65 +9,49 @@ import System.Environment
 import Control.Exception (SomeException, handle)
 import qualified Data.Text as T
 import Data.Text (Text)
-import Data.Monoid (mappend)
-import Data.Maybe (catMaybes)
 
 import Filesystem.Path.CurrentOS
 import Filesystem (readTextFile, getHomeDirectory)
 
-checkProgramConfigs :: Text -> Text -> [ProgramConfig] -> IO (Maybe Bool)
-checkProgramConfigs name key confs = do
-  res <- mapM (checkProgramConfig name key) confs
-  return $ case catMaybes res of
-    [] -> Nothing
-    (x:_) -> Just x
+allProgramOpts :: [OptionsSource] -> IO [Text]
+allProgramOpts confs = do
+  fmap Prelude.concat $ mapM loadProgramOptions confs
 
-checkProgramConfig :: Text -> Text -> ProgramConfig -> IO (Maybe Bool)
-checkProgramConfig name key conf =
-    case conf of
-      (ProgramConfig lpc pcf pct) -> do
-        loaded <- lpc name
-        return $ if pcf loaded key then Just False else
-            if pct loaded key then Just True else Nothing
+checkNegatedOpt :: Text -> [Text] -> (Maybe Bool, [Text])
+checkNegatedOpt optText args =
+    if elem negatedOpt args
+      then (Just False, filteredArgs)
+      else if elem opt args
+             then (Just True, filteredArgs)
+             else (Nothing, args)
+  where
+    filteredArgs = filter (\arg -> arg /= negatedOpt && arg /= opt) args
+    opt = "--" `T.append` optText
+    negatedOpt = "--no-" `T.append` optText
 
-
-data ProgramConfig = forall a. ProgramConfig {
-    loadProgramConfig  :: Text -> IO a
-  , programConfigTrue  :: a -> Text -> Bool
-  , programConfigFalse :: a -> Text -> Bool
+data OptionsSource = OptionsSource {
+    loadProgramOptions :: IO [Text]
   }
 
-commandLine :: ProgramConfig
-commandLine = ProgramConfig {
-    loadProgramConfig = const $ fmap (map T.pack) getArgs
-  , programConfigTrue  = \conf -> flip elem conf . keyArg
-  , programConfigFalse = \conf -> flip elem conf . noKeyArg
+commandLine :: OptionsSource
+commandLine = OptionsSource {
+    loadProgramOptions = fmap (map T.pack) getArgs
   }
 
-environment :: ProgramConfig
-environment = ProgramConfig {
-    programConfigTrue  = checkTextOpt keyArg
-  , programConfigFalse = checkTextOpt noKeyArg
-  , loadProgramConfig  = \name -> do
+environment :: Text -> OptionsSource
+environment name = OptionsSource {
+    loadProgramOptions = do
       env <- getEnvironment
-      return $ case lookup (T.unpack $ T.replace "-" "_" $ T.toUpper name `mappend` "_OPTS") env of
-        Nothing -> ""
-        Just s -> T.pack s
+      return $ case lookup (T.unpack $ T.replace "-" "_" $ T.toUpper name `T.append` "_OPTS") env of
+                Nothing -> []
+                Just s -> T.splitOn " " $ T.pack s
   }
 
-homeOptFile :: ProgramConfig
-homeOptFile = ProgramConfig {
-    programConfigTrue  = checkTextOpt keyArg
-  , programConfigFalse = checkTextOpt noKeyArg
-  , loadProgramConfig  = \name -> do
+homeOptFile :: Text -> OptionsSource
+homeOptFile name = OptionsSource {
+    loadProgramOptions  = do
       hd <- getHomeDirectory
-      handle (\(_::SomeException) -> return "") $
-        readTextFile $ hd </> fromText ("." `mappend` name) </> "opts"
+      contents <- handle (\(_::SomeException) -> return "") $
+        readTextFile $ hd </> fromText ("." `T.append` name) </> "opts"
+      return $ T.splitOn " " contents
   }
-
-keyArg, noKeyArg :: Text -> Text
-keyArg   = ("--"    `mappend`)
-noKeyArg = ("--no-" `mappend`)
-
-checkTextOpt :: (Text -> Text) -> Text -> Text -> Bool
-checkTextOpt optMaker = T.isInfixOf . optMaker
