@@ -3,6 +3,7 @@ import CabalMeta
 import OmniConfig
 import Shelly
 
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
 import Data.Maybe (isNothing)
@@ -54,7 +55,9 @@ nothingToFalse (Just b)  = b
 
 main :: IO ()
 main = do
-  allArgs <- allProgramOpts [commandLine, environment "cabal-meta", homeOptFile "cabal-meta"]
+  allArgs <- fmap (filter $ not . T.null) $
+    allProgramOpts [commandLine, environment "cabal-meta",
+                    homeOptFile "cabal-meta"]
   let (mDev, noDevArgs) = checkNegatedOpt "dev" allArgs
   let isDev = nothingToFalse mDev
 
