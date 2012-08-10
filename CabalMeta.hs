@@ -5,7 +5,7 @@ import Shelly hiding (tag)
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as T
-import Filesystem.Path.CurrentOS (hasExtension, filename)
+import Filesystem.Path.CurrentOS (hasExtension, basename)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.List (partition)
 
@@ -91,7 +91,7 @@ readPackages allowCabals startDir = do
           chdir vendor_dir $
             forM git_pkgs $ \pkg -> do
               let repo = gitLocation pkg 
-              let d = filename $ fromText repo
+              let d = basename $ fromText repo
               e <- test_d d
               if not e
                 then git_ "clone" ["--recursive", repo]
