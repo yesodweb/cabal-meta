@@ -51,7 +51,7 @@ test-suite test
   type:           exitcode-stdio-1.0
 
   build-depends: shelly >= 0.9
-               , hspec, HUnit, unix, base, text, system-filepath
+               , hspec >= 1.3, unix, base, text, system-filepath
                -- , file-location
   extensions: OverloadedStrings 
 
