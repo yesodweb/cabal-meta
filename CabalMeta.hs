@@ -37,22 +37,34 @@ data Package = Directory {
     gitLocation :: Text
   , pFlags :: [Text]
   , gTag :: Maybe Text
+} | DarcsPackage {
+    darcsLocation :: Text
+  , pFlags :: [Text]
+  , darcsTag :: Maybe Text
 } deriving (Show, Eq)
 
 asList :: Package -> [Text]
 asList (Package l flags) = l:flags
 asList (GitPackage l flags tag) = l : flags ++ maybeToList tag
+asList (DarcsPackage l flags tag) = l : flags ++ maybeToList tag
 asList (Directory d flags) = toTextIgnore d : flags
+
+asInstallList :: Package -> [Text]
+asInstallList (Package l flags) = l:flags
+asInstallList (GitPackage l flags _tag) = urlToDiskPath l : flags
+asInstallList (DarcsPackage l flags _tag) = urlToDiskPath l : flags
+asInstallList (Directory d flags) = toTextIgnore d : flags
 
 data PackageSources = PackageSources {
     dirs     :: [Package]
   , hackages :: [Package]
   , https    :: [Package] -- also git for now 
   , gits     :: [Package]
+  , darcsen  :: [Package]
 } deriving (Show, Eq)
 
 packageList :: PackageSources -> [[Text]]
-packageList = map asList . packages
+packageList = map asInstallList . packages
 
 packages :: PackageSources -> [Package]
 packages psources =
@@ -65,16 +77,24 @@ gitPackages psources =
   gits psources ++ https psources
 
 instance Monoid PackageSources where
-  mempty = PackageSources [] [] [] []
-  mappend (PackageSources d1 ha1 ht1 g1) (PackageSources d2 ha2 ht2 g2) =
+  mempty = PackageSources [] [] [] [] []
+  mappend (PackageSources d1 ha1 ht1 g1 da1) (PackageSources d2 ha2 ht2 g2 da2) =
     PackageSources (mappend d1 d2) (mappend ha1 ha2)
-      (mappend ht1 ht2) (mappend g1 g2)
+      (mappend ht1 ht2) (mappend g1 g2) (mappend da1 da2)
 
 vendor_dir :: FilePath
 vendor_dir = "vendor"
 
+-- | Translate a remote repository location to the on-disk location we
+--   fetched it to
+urlToDiskPath :: Text -> Text
+urlToDiskPath x = toTextIgnore $ vendor_dir </> basename (fromText x)
+
 git_ :: Text -> [Text] -> ShIO ()
 git_ = command1_ "git" []
+
+darcs_ :: Text -> [Text] -> ShIO ()
+darcs_ = command1_ "darcs" []
 
 readPackages :: Bool ->  FilePath -> ShIO PackageSources
 readPackages allowCabals startDir = do
@@ -85,11 +105,12 @@ readPackages allowCabals startDir = do
         psources <- getSources
         when (psources == mempty) $ terror $ "empty " <> toTextIgnore source_file
 
-        let git_pkgs = gitPackages psources
+        let git_pkgs   = gitPackages psources
+            darcs_pkgs = darcsen psources
         child_vendor_pkgs <- if null git_pkgs then return [] else do
           mkdir_p vendor_dir
-          chdir vendor_dir $
-            forM git_pkgs $ \pkg -> do
+          chdir vendor_dir $ do
+            gkids <- forM git_pkgs $ \pkg -> do
               let repo = gitLocation pkg 
               let d = basename $ fromText repo
               e <- test_d d
@@ -100,7 +121,18 @@ readPackages allowCabals startDir = do
                 git_ "checkout" [fromMaybe "master" (gTag pkg)]
                 git_ "submodule" ["foreach", "git", "pull", "origin", "master"]
               readPackages False d
-
+            dkids <- forM darcs_pkgs $ \pkg -> do
+              let repo   = darcsLocation pkg
+                  tflags = case darcsTag pkg of
+                             Nothing -> []
+                             Just t  -> ["--tag", t]
+              let d = basename $ fromText repo
+              e <- test_d d
+              if not e
+                then darcs_ "get" $ ["--lazy", repo] ++ tflags
+                else chdir d $ darcs_ "pull"  ["--all"]
+              readPackages False d
+            return (gkids ++ dkids)
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
           b <- fmap (== fullDir) (canonic $ dLocation dir)
           if b then return mempty else readPackages False (dLocation dir)
@@ -115,7 +147,8 @@ readPackages allowCabals startDir = do
             hackages = hackages psources ++ concatMap hackages child_pkgs
           , dirs =
               concatMap (\(p, ps) -> if null ps then [p] else ps) $
-                zip (dirs psources ++ gits psources ++ https psources) (map dirs child_pkgs)
+                zip (dirs psources ++ gits psources ++ https psources ++ darcsen psources)
+                    (map dirs child_pkgs)
           }
   where
     headMay [] = Nothing
@@ -145,15 +178,24 @@ readPackages allowCabals startDir = do
           go sources [] = sources
           go _ ([]:_) = error "impossible"
           go sources ((name:flags):more) = let n = T.head name in
-            if n == '.' || n == '/'               then go sources { dirs     = mkDir: dirs sources } more
-              else if "http"  `T.isPrefixOf` name then go sources { https    = mkGit: https sources } more
-              else if "https" `T.isPrefixOf` name then go sources { gits     = mkGit: https sources } more
-              else if "git:"  `T.isPrefixOf` name then go sources { gits     = mkGit: gits sources } more
-              else                                     go sources { hackages = mkPkg: hackages sources } more
+            case () of
+              _ | n `elem` "./"   -> next sources { dirs     = mkDir: dirs sources  }
+                | prefix "http"   -> next sources { https    = mkGit: https sources }
+                | prefix "https"  -> next sources { gits     = mkGit: https sources }
+                | prefix "git:"   -> next sources { gits     = mkGit: gits sources  }
+                | prefix "darcs:" -> next sources { darcsen  = mkDarcs: darcsen sources  }
+                | otherwise       -> next sources { hackages = mkPkg: hackages sources }
             where
+              prefix x = x `T.isPrefixOf` name
+              next s2  = go s2 more
               mkDir = Directory (fromText name) flags
               mkPkg = Package name flags
-              mkGit = let (realFlags, tags) = partition (T.isPrefixOf "-") flags in
+              mkGit = GitPackage name realFlags tag
+              mkDarcs =
+                case T.stripPrefix "darcs:" name of
+                  Nothing       -> error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flags))
+                  Just realName -> DarcsPackage realName realFlags tag
+              (realFlags, tag) = let (rf, tags) = partition (T.isPrefixOf "-") flags in
                 if length tags > 1
                   then error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flags))
-                  else GitPackage name realFlags (headMay tags)
+                  else (rf, headMay tags)
