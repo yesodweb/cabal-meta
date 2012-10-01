@@ -130,7 +130,7 @@ readPackages allowCabals startDir = do
               e <- test_d d
               if not e
                 then darcs_ "get" $ ["--lazy", repo] ++ tflags
-                else darcs_ "pull"  ["--all"]
+                else chdir d $ darcs_ "pull"  ["--all"]
               readPackages False d
             return (gkids ++ dkids)
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
