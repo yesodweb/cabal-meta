@@ -44,6 +44,11 @@ asList (Package l flags) = l:flags
 asList (GitPackage l flags tag) = l : flags ++ maybeToList tag
 asList (Directory d flags) = toTextIgnore d : flags
 
+asInstallList :: Package -> [Text]
+asInstallList (Package l flags) = l:flags
+asInstallList (GitPackage l flags _tag) = urlToDiskPath l : flags
+asInstallList (Directory d flags) = toTextIgnore d : flags
+
 data PackageSources = PackageSources {
     dirs     :: [Package]
   , hackages :: [Package]
@@ -52,7 +57,7 @@ data PackageSources = PackageSources {
 } deriving (Show, Eq)
 
 packageList :: PackageSources -> [[Text]]
-packageList = map asList . packages
+packageList = map asInstallList . packages
 
 packages :: PackageSources -> [Package]
 packages psources =
@@ -72,6 +77,11 @@ instance Monoid PackageSources where
 
 vendor_dir :: FilePath
 vendor_dir = "vendor"
+
+-- | Translate a remote repository location to the on-disk location we
+--   fetched it to
+urlToDiskPath :: Text -> Text
+urlToDiskPath x = toTextIgnore $ vendor_dir </> basename (fromText x)
 
 git_ :: Text -> [Text] -> ShIO ()
 git_ = command1_ "git" []
