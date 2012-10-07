@@ -1,5 +1,12 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
-module CabalMeta where
+module CabalMeta (
+    Package (..)
+  , PackageSources (..)
+  , readPackages
+  , packageList
+  , vendor_dir
+  , gitPackages
+  ) where
 
 import Shelly hiding (tag)
 import Prelude hiding (FilePath)
