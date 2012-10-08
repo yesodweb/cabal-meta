@@ -14,7 +14,7 @@ import Shelly hiding (tag)
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as T
-import Filesystem.Path.CurrentOS (hasExtension, basename)
+import Filesystem.Path.CurrentOS (hasExtension, basename, dirname)
 import Data.Maybe (fromMaybe, maybeToList, listToMaybe)
 import Data.List (partition)
 
@@ -133,34 +133,11 @@ readPackages allowCabals startDir = do
         psources <- getSources
         when (psources == mempty) $ terror $ "empty " <> toTextIgnore source_file
 
-        let git_pkgs   = gitPackages psources
-            darcs_pkgs = darcsen psources
-        child_vendor_pkgs <- if null git_pkgs then return [] else do
-          mkdir_p vendor_dir
-          chdir vendor_dir $ do
-            gkids <- forM git_pkgs $ \pkg -> do
-              let repo = gitLocation pkg 
-              let d = basename $ fromText repo
-              e <- test_d d
-              if not e
-                then git_ "clone" ["--recursive", repo]
-                else chdir d $ git_ "fetch" ["origin"]
-              chdir d $ do
-                git_ "checkout" [fromMaybe "master" (gTag pkg)]
-                git_ "submodule" ["foreach", "git", "pull", "origin", "master"]
-              readPackages False d
-            dkids <- forM darcs_pkgs $ \pkg -> do
-              let repo   = darcsLocation pkg
-                  tflags = case darcsTag pkg of
-                             Nothing -> []
-                             Just t  -> ["--tag", t]
-              let d = basename $ fromText repo
-              e <- test_d d
-              if not e
-                then darcs_ "get" $ ["--lazy", repo] ++ tflags
-                else chdir d $ darcs_ "pull"  ["--all"]
-              readPackages False d
-            return (gkids ++ dkids)
+        let remote_pkgs = gitPackages psources ++ darcsen psources
+        unless (null remote_pkgs) $ mkdir_p vendor_dir
+        child_vendor_pkgs <- forM remote_pkgs $ \pkg -> do
+          updatePackage pkg
+          readPackages False (diskPath pkg)
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
           b <- fmap (== fullDir) (canonic $ dLocation dir)
           if b then return mempty else readPackages False (dLocation dir)
@@ -181,6 +158,28 @@ readPackages allowCabals startDir = do
   where
     isCabalFile = flip hasExtension "cabal"
     isCabalPresent = fmap (any isCabalFile) (ls ".")
+    updatePackage :: UnstablePackage -> ShIO ()
+    updatePackage p@(GitPackage repo _ t) = do
+      let d = diskPath p
+      e <- test_d d
+      if not e
+        then chdir (dirname d) $
+               git_ "clone" ["--recursive", repo]
+        else chdir d $ git_ "fetch" ["origin"]
+      chdir d $ do
+        git_ "checkout" [fromMaybe "master" t]
+        git_ "submodule" ["foreach", "git", "pull", "origin", "master"]
+    updatePackage p@(DarcsPackage repo _ mtag) = do
+      let d = diskPath p
+          tflags = case mtag of
+                     Nothing -> []
+                     Just t  -> ["--tag", t]
+      e <- test_d d
+      if not e
+        then chdir (dirname d) $
+               darcs_ "get" $ ["--lazy", repo] ++ tflags
+        else chdir d $ darcs_ "pull"  ["--all"]
+    updatePackage (Directory _ _) = return mempty
 
     getSources :: ShIO PackageSources
     getSources = do
