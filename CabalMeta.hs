@@ -137,10 +137,14 @@ readPackages allowCabals startDir = do
         unless (null remote_pkgs) $ mkdir_p vendor_dir
         child_vendor_pkgs <- forM remote_pkgs $ \pkg -> do
           updatePackage pkg
-          readPackages False (diskPath pkg)
+          kids <- readPackages False (diskPath pkg)
+          return (pkg, kids)
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
           b <- fmap (== fullDir) (canonic $ dLocation dir)
-          if b then return mempty else readPackages False (dLocation dir)
+          if b then return (dir, mempty)
+               else do
+                 kids <- readPackages False (dLocation dir)
+                 return (dir, kids)
 
         let child_pkgs = child_dir_pkgs ++ child_vendor_pkgs
 
@@ -149,11 +153,8 @@ readPackages allowCabals startDir = do
         -- if there are no child, there will be an empty list [] of children
         -- this would be easy to break & should be cleaned up
         return $ mempty {
-            hackages = hackages psources ++ concatMap hackages child_pkgs
-          , dirs =
-              concatMap (\(p, ps) -> if null ps then [p] else ps) $
-                zip (dirs psources ++ gits psources ++ https psources ++ darcsen psources)
-                    (map dirs child_pkgs)
+            hackages = hackages psources ++ concatMap (hackages . snd) child_pkgs
+          , dirs     = concatMap (\(p,ps) -> if null (dirs ps) then [p] else dirs ps) child_pkgs
           }
   where
     isCabalFile = flip hasExtension "cabal"
