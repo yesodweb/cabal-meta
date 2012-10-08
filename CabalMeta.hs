@@ -13,7 +13,7 @@ import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as T
 import Filesystem.Path.CurrentOS (hasExtension, basename)
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (fromMaybe, maybeToList, listToMaybe)
 import Data.List (partition)
 
 #if __GLASGOW_HASKELL__ < 704
@@ -158,9 +158,6 @@ readPackages allowCabals startDir = do
                     (map dirs child_pkgs)
           }
   where
-    headMay [] = Nothing
-    headMay xs = Just (head xs)
-
     isCabalFile = flip hasExtension "cabal"
     isCabalPresent = fmap (any isCabalFile) (ls ".")
 
@@ -205,4 +202,4 @@ readPackages allowCabals startDir = do
               (realFlags, tag) = let (rf, tags) = partition (T.isPrefixOf "-") flags in
                 if length tags > 1
                   then error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flags))
-                  else (rf, headMay tags)
+                  else (rf, listToMaybe tags)

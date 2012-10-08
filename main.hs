@@ -6,7 +6,7 @@ import Shelly
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, isJust)
 import Data.Text.Lazy (Text)
 
 import Filesystem.Path.CurrentOS (filename)
@@ -49,17 +49,13 @@ assertCabalDependencies CabalDev = do
     Just _ -> return ()
     Nothing -> error "--dev requires cabal-dev to be installed"
 
-nothingToFalse :: Maybe Bool -> Bool
-nothingToFalse Nothing = False
-nothingToFalse (Just b)  = b
-
 main :: IO ()
 main = do
   allArgs <- fmap (filter $ not . T.null) $
     allProgramOpts [commandLine, environment "cabal-meta",
                     homeOptFile "cabal-meta"]
   let (mDev, noDevArgs) = checkNegatedOpt "dev" allArgs
-  let isDev = nothingToFalse mDev
+  let isDev = isJust mDev
 
   let  cabal = if isDev then CabalDev else Cabal
   assertCabalDependencies cabal
