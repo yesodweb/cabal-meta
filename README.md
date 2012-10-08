@@ -40,6 +40,11 @@ cabal-dev support:
 
 ## Examples
 
+### Darcsden
+
+    darcs:http://darcs.net
+    darcs:http://hub.darcs.net/simon/darcsden
+
 ### Yesod from github
 
 To build a Yesod application using the latest code, create a sources.txt in the project directory with:
