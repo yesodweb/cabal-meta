@@ -6,7 +6,8 @@ module CabalMeta (
   , readPackages
   , packageList
   , vendor_dir
-  , gitPackages
+  , unstablePackages
+  , diskPath
   ) where
 
 import Shelly hiding (tag)
