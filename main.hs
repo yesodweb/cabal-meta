@@ -2,12 +2,14 @@
 import CabalMeta
 import OmniConfig
 import Shelly
+import Paths_cabal_meta
 
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
 import Data.Maybe (isNothing, isJust)
 import Data.Text.Lazy (Text)
+import Data.Version (showVersion)
 
 import Filesystem.Path.CurrentOS (filename)
 import Prelude hiding (FilePath)
@@ -54,6 +56,11 @@ main = do
   allArgs <- fmap (filter $ not . T.null) $
     allProgramOpts [commandLine, environment "cabal-meta",
                     homeOptFile "cabal-meta"]
+
+  when ("--version" `elem` allArgs) $ do
+    putStrLn $ "cabal-meta " ++ showVersion version
+    shelly $ exit 0
+
   let (mDev, noDevArgs) = checkNegatedOpt "dev" allArgs
   let isDev = isJust mDev
 
