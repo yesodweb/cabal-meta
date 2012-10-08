@@ -77,7 +77,8 @@ packages :: PackageSources -> [Package]
 packages psources =
   dirs psources ++
   hackages psources ++
-  gitPackages psources
+  gitPackages psources ++
+  darcsen     psources
 
 gitPackages :: PackageSources -> [Package]
 gitPackages psources =
