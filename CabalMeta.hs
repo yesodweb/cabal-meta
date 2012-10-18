@@ -1,19 +1,21 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
 module CabalMeta (
     Package (..)
+  , UnstablePackage (..)
   , PackageSources (..)
   , readPackages
   , packageList
   , vendor_dir
-  , gitPackages
+  , unstablePackages
+  , diskPath
   ) where
 
 import Shelly hiding (tag)
 import Prelude hiding (FilePath)
 import Data.Text.Lazy (Text, unpack)
 import qualified Data.Text.Lazy as T
-import Filesystem.Path.CurrentOS (hasExtension, basename)
-import Data.Maybe (fromMaybe, maybeToList)
+import Filesystem.Path.CurrentOS (hasExtension, basename, dirname)
+import Data.Maybe (fromMaybe, maybeToList, listToMaybe)
 import Data.List (partition)
 
 #if __GLASGOW_HASKELL__ < 704
@@ -34,40 +36,59 @@ import FileLocation (debug)
 source_file :: FilePath
 source_file = "sources.txt"
 
-data Package = Directory {
-    dLocation :: FilePath
-  , pFlags :: [Text]
-} | Package {
+data Package = Unstable UnstablePackage
+  | Package {
     pLocation :: Text
   , pFlags :: [Text]
+} deriving (Show, Eq)
+
+-- | An unstable package is one which has not been released to some
+--   package repository
+data UnstablePackage = Directory {
+    dLocation :: FilePath
+  , upFlags :: [Text]
 } | GitPackage {
     gitLocation :: Text
-  , pFlags :: [Text]
+  , upFlags :: [Text]
   , gTag :: Maybe Text
 } | DarcsPackage {
     darcsLocation :: Text
-  , pFlags :: [Text]
+  , upFlags :: [Text]
   , darcsTag :: Maybe Text
 } deriving (Show, Eq)
 
 asList :: Package -> [Text]
-asList (Package l flags) = l:flags
-asList (GitPackage l flags tag) = l : flags ++ maybeToList tag
-asList (DarcsPackage l flags tag) = l : flags ++ maybeToList tag
-asList (Directory d flags) = toTextIgnore d : flags
+asList (Package l fs)                     = l : fs
+asList (Unstable (GitPackage l fs tag))   = l : fs ++ maybeToList tag
+asList (Unstable (DarcsPackage l fs tag)) = l : fs ++ maybeToList tag
+asList (Unstable (Directory d fs))        = toTextIgnore d : fs
 
 asInstallList :: Package -> [Text]
-asInstallList (Package l flags) = l:flags
-asInstallList (GitPackage l flags _tag) = urlToDiskPath l : flags
-asInstallList (DarcsPackage l flags _tag) = urlToDiskPath l : flags
-asInstallList (Directory d flags) = toTextIgnore d : flags
+asInstallList p@(Package l _) = l     : flags p
+asInstallList p@(Unstable up) = dpath : flags p
+ where dpath = toTextIgnore (diskPath up)
+
+flags :: Package -> [Text]
+flags (Package _ fs)                   = fs
+flags (Unstable (GitPackage _ fs _))   = fs
+flags (Unstable (DarcsPackage _ fs _)) = fs
+flags (Unstable (Directory _ fs))      = fs
+
+diskPath :: UnstablePackage -> FilePath
+diskPath p =
+  case p of
+   GitPackage l _ _   -> fromUrl l
+   DarcsPackage l _ _ -> fromUrl l
+   Directory  d _     -> d
+ where
+  fromUrl x = vendor_dir </> basename (fromText x)
 
 data PackageSources = PackageSources {
-    dirs     :: [Package]
+    dirs     :: [UnstablePackage]
   , hackages :: [Package]
-  , https    :: [Package] -- also git for now 
-  , gits     :: [Package]
-  , darcsen  :: [Package]
+  , https    :: [UnstablePackage] -- also git for now
+  , gits     :: [UnstablePackage]
+  , darcsen  :: [UnstablePackage]
 } deriving (Show, Eq)
 
 packageList :: PackageSources -> [[Text]]
@@ -75,11 +96,16 @@ packageList = map asInstallList . packages
 
 packages :: PackageSources -> [Package]
 packages psources =
-  dirs psources ++
   hackages psources ++
-  gitPackages psources
+  map Unstable (unstablePackages psources)
 
-gitPackages :: PackageSources -> [Package]
+unstablePackages :: PackageSources -> [UnstablePackage]
+unstablePackages psources =
+  dirs psources ++
+  gitPackages psources ++
+  darcsen     psources
+
+gitPackages :: PackageSources -> [UnstablePackage]
 gitPackages psources =
   gits psources ++ https psources
 
@@ -91,11 +117,6 @@ instance Monoid PackageSources where
 
 vendor_dir :: FilePath
 vendor_dir = "vendor"
-
--- | Translate a remote repository location to the on-disk location we
---   fetched it to
-urlToDiskPath :: Text -> Text
-urlToDiskPath x = toTextIgnore $ vendor_dir </> basename (fromText x)
 
 git_ :: Text -> [Text] -> ShIO ()
 git_ = command1_ "git" []
@@ -112,37 +133,18 @@ readPackages allowCabals startDir = do
         psources <- getSources
         when (psources == mempty) $ terror $ "empty " <> toTextIgnore source_file
 
-        let git_pkgs   = gitPackages psources
-            darcs_pkgs = darcsen psources
-        child_vendor_pkgs <- if null git_pkgs then return [] else do
-          mkdir_p vendor_dir
-          chdir vendor_dir $ do
-            gkids <- forM git_pkgs $ \pkg -> do
-              let repo = gitLocation pkg 
-              let d = basename $ fromText repo
-              e <- test_d d
-              if not e
-                then git_ "clone" ["--recursive", repo]
-                else chdir d $ git_ "fetch" ["origin"]
-              chdir d $ do
-                git_ "checkout" [fromMaybe "master" (gTag pkg)]
-                git_ "submodule" ["foreach", "git", "pull", "origin", "master"]
-              readPackages False d
-            dkids <- forM darcs_pkgs $ \pkg -> do
-              let repo   = darcsLocation pkg
-                  tflags = case darcsTag pkg of
-                             Nothing -> []
-                             Just t  -> ["--tag", t]
-              let d = basename $ fromText repo
-              e <- test_d d
-              if not e
-                then darcs_ "get" $ ["--lazy", repo] ++ tflags
-                else chdir d $ darcs_ "pull"  ["--all"]
-              readPackages False d
-            return (gkids ++ dkids)
+        let remote_pkgs = gitPackages psources ++ darcsen psources
+        unless (null remote_pkgs) $ mkdir_p vendor_dir
+        child_vendor_pkgs <- forM remote_pkgs $ \pkg -> do
+          updatePackage pkg
+          kids <- readPackages False (diskPath pkg)
+          return (pkg, kids)
         child_dir_pkgs <- forM (dirs psources) $ \dir -> do
           b <- fmap (== fullDir) (canonic $ dLocation dir)
-          if b then return mempty else readPackages False (dLocation dir)
+          if b then return (dir, mempty)
+               else do
+                 kids <- readPackages False (dLocation dir)
+                 return (dir, kids)
 
         let child_pkgs = child_dir_pkgs ++ child_vendor_pkgs
 
@@ -151,18 +153,34 @@ readPackages allowCabals startDir = do
         -- if there are no child, there will be an empty list [] of children
         -- this would be easy to break & should be cleaned up
         return $ mempty {
-            hackages = hackages psources ++ concatMap hackages child_pkgs
-          , dirs =
-              concatMap (\(p, ps) -> if null ps then [p] else ps) $
-                zip (dirs psources ++ gits psources ++ https psources ++ darcsen psources)
-                    (map dirs child_pkgs)
+            hackages = hackages psources ++ concatMap (hackages . snd) child_pkgs
+          , dirs     = concatMap (\(p,ps) -> if null (dirs ps) then [p] else dirs ps) child_pkgs
           }
   where
-    headMay [] = Nothing
-    headMay xs = Just (head xs)
-
     isCabalFile = flip hasExtension "cabal"
     isCabalPresent = fmap (any isCabalFile) (ls ".")
+    updatePackage :: UnstablePackage -> ShIO ()
+    updatePackage p@(GitPackage repo _ t) = do
+      let d = diskPath p
+      e <- test_d d
+      if not e
+        then chdir (dirname d) $
+               git_ "clone" ["--recursive", repo]
+        else chdir d $ git_ "fetch" ["origin"]
+      chdir d $ do
+        git_ "checkout" [fromMaybe "master" t]
+        git_ "submodule" ["foreach", "git", "pull", "origin", "master"]
+    updatePackage p@(DarcsPackage repo _ mtag) = do
+      let d = diskPath p
+          tflags = case mtag of
+                     Nothing -> []
+                     Just t  -> ["--tag", t]
+      e <- test_d d
+      if not e
+        then chdir (dirname d) $
+               darcs_ "get" $ ["--lazy", repo] ++ tflags
+        else chdir d $ darcs_ "pull"  ["--all"]
+    updatePackage (Directory _ _) = return mempty
 
     getSources :: ShIO PackageSources
     getSources = do
@@ -184,7 +202,7 @@ readPackages allowCabals startDir = do
           where
           go sources [] = sources
           go _ ([]:_) = error "impossible"
-          go sources ((name:flags):more) = let n = T.head name in
+          go sources ((name:flgs):more) = let n = T.head name in
             case () of
               _ | n `elem` "./"   -> next sources { dirs     = mkDir: dirs sources  }
                 | prefix "http"   -> next sources { https    = mkGit: https sources }
@@ -195,14 +213,14 @@ readPackages allowCabals startDir = do
             where
               prefix x = x `T.isPrefixOf` name
               next s2  = go s2 more
-              mkDir = Directory (fromText name) flags
-              mkPkg = Package name flags
+              mkDir = Directory (fromText name) flgs
+              mkPkg = Package name flgs
               mkGit = GitPackage name realFlags tag
               mkDarcs =
                 case T.stripPrefix "darcs:" name of
-                  Nothing       -> error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flags))
+                  Nothing       -> error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flgs))
                   Just realName -> DarcsPackage realName realFlags tag
-              (realFlags, tag) = let (rf, tags) = partition (T.isPrefixOf "-") flags in
+              (realFlags, tag) = let (rf, tags) = partition (T.isPrefixOf "-") flgs in
                 if length tags > 1
-                  then error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flags))
-                  else (rf, headMay tags)
+                  then error $ unpack $ "did not understand" <> T.intercalate " " (asList (Package name flgs))
+                  else (rf, listToMaybe tags)

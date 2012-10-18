@@ -2,12 +2,14 @@
 import CabalMeta
 import OmniConfig
 import Shelly
+import Paths_cabal_meta
 
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, isJust)
 import Data.Text.Lazy (Text)
+import Data.Version (showVersion)
 
 import Filesystem.Path.CurrentOS (filename)
 import Prelude hiding (FilePath)
@@ -49,17 +51,18 @@ assertCabalDependencies CabalDev = do
     Just _ -> return ()
     Nothing -> error "--dev requires cabal-dev to be installed"
 
-nothingToFalse :: Maybe Bool -> Bool
-nothingToFalse Nothing = False
-nothingToFalse (Just b)  = b
-
 main :: IO ()
 main = do
   allArgs <- fmap (filter $ not . T.null) $
     allProgramOpts [commandLine, environment "cabal-meta",
                     homeOptFile "cabal-meta"]
+
+  when ("--version" `elem` allArgs) $ do
+    putStrLn $ "cabal-meta " ++ showVersion version
+    shelly $ exit 0
+
   let (mDev, noDevArgs) = checkNegatedOpt "dev" allArgs
-  let isDev = nothingToFalse mDev
+  let isDev = isJust mDev
 
   let  cabal = if isDev then CabalDev else Cabal
   assertCabalDependencies cabal
@@ -79,13 +82,8 @@ main = do
 
     cabal_install_ cabal $ args ++ concat installs
     whenCabal cabal $ do
-        forM_ (dirs packageSources) $ \pkg ->
-          chdir (dLocation pkg) $ run "cabal-src-install" ["--src-only"]
-        forM_ (gitPackages packageSources) $ \pkg ->
-          chdir vendor_dir $ do
-            let repo = gitLocation pkg 
-            let d = filename $ fromText repo
-            chdir d $ run "cabal-src-install" ["--src-only"]
+        forM_ (unstablePackages packageSources) $ \pkg ->
+          chdir (diskPath pkg) $ run "cabal-src-install" ["--src-only"]
     return ()
 
   where
