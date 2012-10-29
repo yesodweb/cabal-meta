@@ -42,8 +42,8 @@ You can also supply arguments in an environment variable or a configuration file
 
 ## Examples
 
-Controlling cabal-meta is done through sources.txt
-sources.txt contains a repo location and optionally a branch name and build flags.
+Controlling cabal-meta is done through `sources.txt`.
+`sources.txt` contains a repo location and optionally a branch name and build flags.
 Build flags start with a dash.
 
 
