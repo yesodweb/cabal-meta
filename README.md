@@ -37,8 +37,18 @@ cabal-dev support:
 
     cabal-meta --dev install
 
+You can also supply arguments in an environment variable or a configuration file.
+
 
 ## Examples
+
+Controlling cabal-meta is done through sources.txt
+sources.txt contains a repo location and optionally a branch name and build flags.
+Build flags start with a dash.
+
+
+    git://github.com/foo/bar ghc-7.6-compat -flag
+
 
 ### Darcsden
 
