@@ -5,10 +5,9 @@ import Shelly
 import Paths_cabal_meta
 
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as LT
 import Control.Monad (forM_)
 import Data.Maybe (isNothing, isJust)
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Data.Version (showVersion)
 
 import Filesystem.Path.CurrentOS (filename)
@@ -19,7 +18,7 @@ headDef d [] = d
 headDef _ (x:_) = x
 
 help :: Text
-help = LT.intercalate "\n" [
+help = T.intercalate "\n" [
   "cabal-meta is a cabal wrapper for installing multiple packages at once that may not be on hackage"
  ,"run with:"
  ,""
@@ -68,17 +67,17 @@ main = do
   assertCabalDependencies cabal
 
   unless (headDef "" noDevArgs == "install") $ do
-    putStrLn $ LT.unpack help
+    putStrLn $ T.unpack help
     putStrLn $ "using cabal: " ++ show cabal
     shelly $ exit 1
 
-  let (_:args) = map LT.fromStrict noDevArgs
+  let (_:args) = noDevArgs
 
   shelly $ verbosely $ do
     packageSources <- readPackages True "."
     let installs = packageList packageSources
     echo "Installing packages:"
-    mapM_ echo $ map (LT.intercalate " ") installs
+    mapM_ echo $ map (T.intercalate " ") installs
 
     cabal_install_ cabal $ args ++ concat installs
     whenCabal cabal $ do
