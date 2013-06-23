@@ -8,6 +8,10 @@ module CabalMeta (
   , vendor_dir
   , unstablePackages
   , diskPath
+#ifdef TEST
+  , asList
+  , packages
+#endif
   ) where
 
 import Shelly hiding (tag)
