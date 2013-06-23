@@ -12,8 +12,8 @@ module CabalMeta (
 
 import Shelly hiding (tag)
 import Prelude hiding (FilePath)
-import Data.Text.Lazy (Text, unpack)
-import qualified Data.Text.Lazy as T
+import Data.Text (Text, unpack)
+import qualified Data.Text as T
 import Filesystem.Path.CurrentOS (hasExtension, basename, dirname)
 import Data.Maybe (fromMaybe, maybeToList, listToMaybe)
 import Data.List (partition)
