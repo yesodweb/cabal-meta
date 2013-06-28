@@ -35,8 +35,13 @@ cabal_install_ cabal = command_ (progName cabal) ["install"]
 data CabalExe = Cabal | CabalDev deriving Show
 
 progName :: CabalExe -> FilePath
+#ifdef mingw32_HOST_OS
+progName Cabal = "cabal.exe"
+progName CabalDev = "cabal-dev.exe"
+#else
 progName Cabal = "cabal"
 progName CabalDev = "cabal-dev"
+#endif
 
 assertCabalDependencies :: CabalExe -> IO ()
 assertCabalDependencies Cabal    = shelly $ do
@@ -45,7 +50,7 @@ assertCabalDependencies Cabal    = shelly $ do
     errorExit "please run: cabal install cabal-src"
 
 assertCabalDependencies CabalDev = do
-  mcd <- shelly $ which "cabal-dev"
+  mcd <- shelly $ which (progName CabalDev)
   case mcd of
     Just _ -> return ()
     Nothing -> error "--dev requires cabal-dev to be installed"
