@@ -212,6 +212,7 @@ readPackages allowCabals startDir = do
                 | prefix "http"   -> next sources { https    = mkGit: https sources }
                 | prefix "https"  -> next sources { gits     = mkGit: https sources }
                 | prefix "git:"   -> next sources { gits     = mkGit: gits sources  }
+                | prefix "ssh:"   -> next sources { gits     = mkGit: gits sources  }
                 | prefix "darcs:" -> next sources { darcsen  = mkDarcs: darcsen sources  }
                 | otherwise       -> next sources { hackages = mkPkg: hackages sources }
             where
