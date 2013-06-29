@@ -10,7 +10,6 @@ import Data.Maybe (isNothing, isJust)
 import Data.Text (Text)
 import Data.Version (showVersion)
 
-import Filesystem.Path.CurrentOS (filename)
 import Prelude hiding (FilePath)
 
 headDef :: a -> [a] -> a
@@ -41,8 +40,9 @@ progName CabalDev = "cabal-dev"
 assertCabalDependencies :: CabalExe -> IO ()
 assertCabalDependencies Cabal    = shelly $ do
   mPath <- which "cabal-src-install"
-  when (isNothing mPath) $
-    errorExit "please run: cabal install cabal-src"
+  when (isNothing mPath) $ do
+    echo "please run: cabal install cabal-src"
+    quietExit 1
 
 assertCabalDependencies CabalDev = do
   mcd <- shelly $ which "cabal-dev"
@@ -64,12 +64,14 @@ main = do
   let isDev = isJust mDev
 
   let  cabal = if isDev then CabalDev else Cabal
-  assertCabalDependencies cabal
 
   unless (headDef "" noDevArgs == "install") $ do
     putStrLn $ T.unpack help
     putStrLn $ "using cabal: " ++ show cabal
-    shelly $ exit 1
+    shelly $
+      if (headDef "" noDevArgs == "--help") then exit 0 else quietExit 1
+
+  assertCabalDependencies cabal
 
   let (_:args) = noDevArgs
 
