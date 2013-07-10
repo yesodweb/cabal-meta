@@ -122,13 +122,13 @@ instance Monoid PackageSources where
 vendor_dir :: FilePath
 vendor_dir = "vendor"
 
-git_ :: Text -> [Text] -> ShIO ()
+git_ :: Text -> [Text] -> Sh ()
 git_ = command1_ "git" []
 
-darcs_ :: Text -> [Text] -> ShIO ()
+darcs_ :: Text -> [Text] -> Sh ()
 darcs_ = command1_ "darcs" []
 
-readPackages :: Bool ->  FilePath -> ShIO PackageSources
+readPackages :: Bool ->  FilePath -> Sh PackageSources
 readPackages allowCabals startDir = do
   fullDir <- canonic startDir
   chdir fullDir $ do
@@ -163,7 +163,7 @@ readPackages allowCabals startDir = do
   where
     isCabalFile = flip hasExtension "cabal"
     isCabalPresent = fmap (any isCabalFile) (ls ".")
-    updatePackage :: UnstablePackage -> ShIO ()
+    updatePackage :: UnstablePackage -> Sh ()
     updatePackage p@(GitPackage repo _ t) = do
       let d = diskPath p
       e <- test_d d
@@ -186,7 +186,7 @@ readPackages allowCabals startDir = do
         else chdir d $ darcs_ "pull"  ["--all"]
     updatePackage (Directory _ _) = return mempty
 
-    getSources :: ShIO PackageSources
+    getSources :: Sh PackageSources
     getSources = do
         sourceContent <- readfile source_file
         let sources = paritionSources [ source | 
