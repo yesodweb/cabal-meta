@@ -23,7 +23,7 @@ Each line of `sources.txt` is either a hackage package, a directory, or a github
 A directory is either a local cabal package or contains another `sources.txt` to recurse into.
 
 cabal-meta automatically uses cabal-src-install (if you have it installed) unless you are using cabal-dev (--dev option).
-cabal-src-install is used to add local packages to your cabal package database: plesae see cabal-src documentation.
+cabal-src-install is used to add local packages to your cabal package database: please see cabal-src documentation.
 Please note that this is done after the package install. If there is a failure anywhere along the way, cabal-src-install will not be used.
 
 
