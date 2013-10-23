@@ -28,27 +28,34 @@ help = T.intercalate "\n" [
  ,"You can also set options through the CABAL_META_OPTS environment variable or the ~/.cabal-meta/opts file"
  ]
 
-cabal_install_ :: CabalExe -> [Text] -> ShIO ()
+cabal_install_ :: CabalExe -> [Text] -> Sh ()
 cabal_install_ cabal = command_ (progName cabal) ["install"]
 
 data CabalExe = Cabal | CabalDev deriving Show
 
 progName :: CabalExe -> FilePath
-progName Cabal = "cabal"
+progName Cabal    = "cabal"
 progName CabalDev = "cabal-dev"
 
-assertCabalDependencies :: CabalExe -> IO ()
+assertCabalDependencies :: CabalExe -> IO Bool
 assertCabalDependencies Cabal    = shelly $ do
-  mPath <- which "cabal-src-install"
-  when (isNothing mPath) $ do
-    echo "please run: cabal install cabal-src"
-    quietExit 1
+    whenM (test_e "cabal-dev") $ do
+      putStrLn $ T.unpack help
+      echo "\n\ncabal-dev/ folder found. use the --dev option"
+      quietExit 1
+
+    mPath <- which "cabal-src-install"
+    if isNothing mPath
+      then warn >> return False
+      else return True
+  where
+    warn = echo "\nWARNING: cabal-src not installed. run:\n   cabal install cabal-src\n"
 
 assertCabalDependencies CabalDev = do
-  mcd <- shelly $ which "cabal-dev"
-  case mcd of
-    Just _ -> return ()
-    Nothing -> error "--dev requires cabal-dev to be installed"
+    mcd <- shelly $ which "cabal-dev"
+    case mcd of
+      Just _ -> return False
+      Nothing -> error "--dev requires cabal-dev to be installed"
 
 main :: IO ()
 main = do
@@ -71,7 +78,7 @@ main = do
     shelly $
       if (headDef "" noDevArgs == "--help") then exit 0 else quietExit 1
 
-  assertCabalDependencies cabal
+  installSrc <- assertCabalDependencies cabal
 
   let (_:args) = noDevArgs
 
@@ -82,9 +89,11 @@ main = do
     mapM_ echo $ map (T.intercalate " ") installs
 
     cabal_install_ cabal $ args ++ concat installs
-    whenCabal cabal $ do
+    case (cabal, installSrc) of
+      (Cabal, True) ->
         forM_ (unstablePackages packageSources) $ \pkg ->
           chdir (diskPath pkg) $ run "cabal-src-install" ["--src-only"]
+      _ -> return ()
     return ()
 
   where
