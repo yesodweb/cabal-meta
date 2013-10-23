@@ -1,3 +1,10 @@
+# usage with cabal sandbox
+
+Please use the cabal sandbox feature available in cabal >= 1.18
+There is some overlap with the cabal sandbox add-source feature and using cabal-meta.
+You will probably want to try just using cabal sandbox with add-source and use cabal-meta when you have problems with that workflow.
+
+
 # cabal-meta
 
 cabal-meta is a cabal wrapper that facilitates:
