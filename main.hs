@@ -95,9 +95,3 @@ main = do
           chdir (diskPath pkg) $ run "cabal-src-install" ["--src-only"]
       _ -> return ()
     return ()
-
-  where
-    whenCabal cabal a =
-      case cabal of
-        CabalDev -> return ()
-        Cabal    -> a
