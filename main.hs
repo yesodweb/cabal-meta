@@ -40,7 +40,7 @@ progName CabalDev = "cabal-dev"
 assertCabalDependencies :: CabalExe -> IO Bool
 assertCabalDependencies Cabal    = shelly $ do
     whenM (test_e "cabal-dev") $ do
-      putStrLn $ T.unpack help
+      echo help
       echo "\n\ncabal-dev/ folder found. use the --dev option"
       quietExit 1
 

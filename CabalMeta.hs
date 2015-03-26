@@ -208,7 +208,7 @@ readPackages allowCabals startDir = do
           go _ ([]:_) = error "impossible"
           go sources ((name:flgs):more) = let n = T.head name in
             case () of
-              _ | n `elem` "./"   -> next sources { dirs     = mkDir: dirs sources  }
+              _ | n `elem` ("./" :: String)   -> next sources { dirs     = mkDir: dirs sources  }
                 | prefix "http"   -> next sources { https    = mkGit: https sources }
                 | prefix "https"  -> next sources { gits     = mkGit: https sources }
                 | prefix "git:"   -> next sources { gits     = mkGit: gits sources  }
